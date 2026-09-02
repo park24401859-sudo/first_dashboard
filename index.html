@@ -5,18 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="서울 공공자전거 따릉이의 총 이용건수와 운영 대여소 수를 보여주는 대시보드"
+      content="서울 공공자전거 따릉이의 핵심 운영 지표와 이용건수 상위 대여소를 보여주는 데이터 대시보드"
     />
-    <title>따릉이 이용 현황</title>
+    <title>서울시 따릉이 운영 대시보드</title>
     <link rel="stylesheet" href="./styles.css" />
     <script src="./app.js" defer></script>
   </head>
   <body>
+    <div class="ambient ambient--one" aria-hidden="true"></div>
+    <div class="ambient ambient--two" aria-hidden="true"></div>
+
     <div class="page-shell">
       <header class="topbar">
-        <a class="brand" href="./" aria-label="따릉이 이용 현황 홈">
+        <a class="brand" href="./" aria-label="서울시 따릉이 운영 대시보드 홈">
           <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" role="img">
+            <svg viewBox="0 0 32 32">
               <circle cx="9" cy="22" r="6"></circle>
               <circle cx="23" cy="22" r="6"></circle>
               <path d="M9 22l5-10 4 10m-9 0h14M13 9h5"></path>
@@ -24,74 +27,138 @@
           </span>
           <span>
             <strong>SEOUL BIKE</strong>
-            <small>공공자전거 이용 현황</small>
+            <small>INTELLIGENCE HUB</small>
           </span>
         </a>
 
         <div class="data-status" id="data-status" role="status" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
-          <span>데이터 불러오는 중</span>
+          <span>CSV 데이터 집계 중</span>
         </div>
       </header>
 
       <main class="dashboard" id="dashboard" aria-busy="true">
-        <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">BIKE STATION HOURLY DATA</p>
-          <h1 id="page-title">따릉이 이용 현황</h1>
-          <p class="intro-copy">
-            시간대별 이용 기록을 집계해 꼭 필요한 운영 지표만 간결하게 보여드립니다.
+        <section class="hero" aria-labelledby="page-title">
+          <div class="hero-badge">
+            <span aria-hidden="true"></span>
+            LIVE CSV AGGREGATION
+          </div>
+          <p class="hero-kicker">서울 공공자전거 운영 인사이트</p>
+          <h1 id="page-title">숫자로 읽는<br /><em>서울의 이동</em></h1>
+          <p class="hero-copy">
+            서울시 따릉이 시간대별 원본 데이터를 브라우저에서 직접 분석해<br class="desktop-only" />
+            핵심 운영 현황과 시민이 가장 많이 찾은 대여소를 보여드립니다.
           </p>
         </section>
 
         <section class="metric-grid" aria-label="핵심 운영 지표">
-          <article class="metric-card metric-card--rides">
-            <div class="metric-heading">
+          <article class="metric-card metric-card--rides reveal-item">
+            <div class="card-topline">
               <span class="metric-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
-                  <path d="M4 18h16M6 15l3-5 3 3 2-4 4 6"></path>
-                  <path d="M18 9h2v6"></path>
+                  <circle cx="6" cy="17" r="4"></circle>
+                  <circle cx="18" cy="17" r="4"></circle>
+                  <path d="M6 17l4-9 4 9m-8 0h12M9 6h4"></path>
                 </svg>
               </span>
-              <span class="metric-label">총 이용건수</span>
+              <span class="micro-label">TOTAL VOLUME</span>
+              <span class="metric-chip metric-chip--cyan">전체 이용 실적</span>
             </div>
+            <p class="metric-label">누적 총 이용건수</p>
             <div class="metric-value-row">
               <strong class="metric-value skeleton" id="total-rides">—</strong>
               <span class="metric-unit">건</span>
             </div>
-            <p class="metric-note">전체 요일과 시간대의 이용건수 합계</p>
+            <p class="metric-note">전체 대여소·요일·시간대 이용건수의 합계</p>
+
+            <div class="split-summary" aria-label="평일과 주말 이용 비중">
+              <div class="split-labels">
+                <span><i class="dot dot--cyan"></i>평일 <strong id="weekday-summary">—</strong></span>
+                <span><i class="dot dot--violet"></i>주말 <strong id="weekend-summary">—</strong></span>
+              </div>
+              <div class="split-bar" aria-hidden="true">
+                <span id="weekday-bar"></span>
+                <span id="weekend-bar"></span>
+              </div>
+            </div>
           </article>
 
-          <article class="metric-card metric-card--stations">
-            <div class="metric-heading">
+          <article class="metric-card metric-card--stations reveal-item">
+            <div class="card-topline">
               <span class="metric-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"></path>
                   <circle cx="12" cy="10" r="2.2"></circle>
                 </svg>
               </span>
-              <span class="metric-label">운영 대여소 수</span>
+              <span class="micro-label">INFRASTRUCTURE</span>
+              <span class="metric-chip metric-chip--green">이용 기록 기준</span>
             </div>
+            <p class="metric-label">운영 대여소 수</p>
             <div class="metric-value-row">
               <strong class="metric-value skeleton" id="active-stations">—</strong>
-              <span class="metric-unit">곳</span>
+              <span class="metric-unit">개소</span>
             </div>
-            <p class="metric-note">이용 기록이 있는 고유 대여소 기준</p>
+            <p class="metric-note">이용건수가 1건 이상인 고유 대여소 수</p>
+
+            <dl class="mini-stats">
+              <div>
+                <dt>대여소당 평균</dt>
+                <dd id="average-rides">—</dd>
+              </div>
+              <div>
+                <dt>집계 시간대</dt>
+                <dd>24시간</dd>
+              </div>
+            </dl>
           </article>
         </section>
 
-        <section class="source-panel" aria-label="데이터 안내">
-          <div>
-            <span class="source-label">집계 데이터</span>
-            <code>bike_station_hourly.csv</code>
+        <section class="ranking-panel reveal-item" aria-labelledby="ranking-title">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <span class="trophy" aria-hidden="true">★</span>
+              <div>
+                <p class="section-kicker">STATION LEADERBOARD</p>
+                <h2 id="ranking-title">이용건수 상위 TOP 10 대여소</h2>
+                <p>목적에 따라 순위를 바꿔보세요. 모든 수치는 원본 CSV 집계 결과입니다.</p>
+              </div>
+            </div>
+
+            <div class="tabs" role="tablist" aria-label="대여소 순위 기준">
+              <button class="tab is-active" id="tab-total" type="button" role="tab" aria-selected="true" data-ranking="total">
+                <span aria-hidden="true">✦</span> 전체 이용
+              </button>
+              <button class="tab" id="tab-commute" type="button" role="tab" aria-selected="false" data-ranking="commute">
+                <span aria-hidden="true">▣</span> 평일 출퇴근
+              </button>
+              <button class="tab" id="tab-weekend" type="button" role="tab" aria-selected="false" data-ranking="weekend">
+                <span aria-hidden="true">♣</span> 주말 이용
+              </button>
+            </div>
           </div>
-          <p>페이지가 열릴 때 브라우저에서 원본 CSV를 직접 집계합니다.</p>
+
+          <div class="ranking-context" id="ranking-context">전체 요일·시간대 이용건수 합계</div>
+          <ol class="ranking-list" id="ranking-list" aria-live="polite" aria-busy="true">
+            <li class="ranking-loading">대여소 순위를 계산하고 있습니다.</li>
+          </ol>
+        </section>
+
+        <section class="source-panel" aria-label="데이터 안내">
+          <div class="source-info">
+            <span class="folder-icon" aria-hidden="true">▰</span>
+            <span>집계 데이터셋</span>
+            <code>bike_station_hourly.csv</code>
+            <span class="source-count" id="source-count">행 수 확인 중</span>
+          </div>
+          <button class="replay-button" id="replay-button" type="button">
+            <span aria-hidden="true">↻</span> 애니메이션 다시보기
+          </button>
         </section>
 
         <div class="error-panel" id="error-panel" role="alert" hidden>
           <strong>데이터를 불러오지 못했습니다.</strong>
-          <p id="error-message">
-            로컬에서는 파일을 직접 열지 말고 웹 서버를 실행한 뒤 접속해주세요.
-          </p>
+          <p id="error-message">파일을 직접 열지 말고 웹 서버를 실행한 뒤 접속해주세요.</p>
         </div>
 
         <noscript>
@@ -103,8 +170,8 @@
       </main>
 
       <footer class="footer">
-        <span>서울 공공자전거 따릉이</span>
-        <span>데이터 기반 운영 현황</span>
+        <span>SEOUL BIKE DATA DASHBOARD</span>
+        <span>HTML · CSS · JavaScript</span>
       </footer>
     </div>
   </body>
