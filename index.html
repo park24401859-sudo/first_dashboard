@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>따릉이 대여소 군집 관제 — 가중치와 지도</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin="">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__id">
+    <span class="topbar__mark" aria-hidden="true"></span>
+    <div>
+      <h1>따릉이 대여소 군집 관제</h1>
+      <p class="topbar__sub">서울 공공자전거 운영관리팀 · 5주차 14일차 실습 화면</p>
+    </div>
+  </div>
+  <dl class="topbar__stats">
+    <div><dt>대여소</dt><dd id="statStations">—</dd></div>
+    <div><dt>관측기간</dt><dd id="statPeriod">—</dd></div>
+    <div><dt>군집 수</dt><dd>4 (k 고정)</dd></div>
+    <div><dt>재계산</dt><dd id="statRecalc">—</dd></div>
+  </dl>
+</header>
+
+<p class="banner" id="banner" role="status">데이터를 읽는 중…</p>
+
+<main class="layout" id="layout" hidden>
+
+  <!-- ── 왼쪽: 가중치 ───────────────────────────────────────── -->
+  <section class="panel panel--weights" aria-labelledby="weightsHead">
+    <h2 id="weightsHead" class="panel__head">
+      군집 변수 가중치
+      <span class="panel__hint">거리 계산에서 어떤 변수를 더 크게 볼지 정한다</span>
+    </h2>
+
+    <form id="weightForm" class="weights">
+      <!-- 슬라이더 5개는 app.js가 채운다 -->
+    </form>
+
+    <div class="weights__sumrow">
+      <div class="weights__sum">
+        <span class="weights__sumlabel">입력한 값의 합계</span>
+        <strong id="weightSum">100%</strong>
+      </div>
+      <p class="weights__note" id="weightNote">
+        합계가 100%가 아니어도 된다. 재계산할 때 합계 100%로 다시 나눠서 쓴다.
+      </p>
+    </div>
+
+    <table class="weights__effective">
+      <caption>재계산에 실제로 들어가는 값</caption>
+      <thead>
+        <tr><th scope="col">변수</th><th scope="col">입력값</th>
+            <th scope="col">유효 가중치</th><th scope="col">거리 배율<br>√유효가중치</th></tr>
+      </thead>
+      <tbody id="effectiveBody"></tbody>
+    </table>
+
+    <div class="weights__actions">
+      <button type="button" id="btnRecalc" class="btn btn--primary">군집 다시 계산</button>
+      <button type="button" id="btnReset" class="btn">기본값으로 초기화</button>
+    </div>
+
+    <div class="delta" id="delta" aria-live="polite">
+      <span class="delta__label">가중치 변경으로 군집이 달라진 대여소</span>
+      <strong class="delta__value" id="deltaValue">0곳</strong>
+      <span class="delta__sub" id="deltaSub">기본 가중치(각 20%) 결과와 비교</span>
+    </div>
+
+    <div class="notice">
+      <h3>화면을 읽을 때 지켜야 하는 것</h3>
+      <ul>
+        <li>군집은 운영 유형을 탐색하기 위한 그룹이며 우수·열등 순위가 아니다.</li>
+        <li>가중치는 어떤 변수를 군집 간 거리에서 더 중요하게 볼지 정한다.</li>
+        <li>지도만으로 업무지구·주거지·관광지 또는 실제 품절 원인을 단정할 수 없다.</li>
+        <li>현재 데이터에는 실시간 재고·대여 실패·반납 실패가 없다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 가운데: 지도 ───────────────────────────────────────── -->
+  <section class="panel panel--map" aria-labelledby="mapHead">
+    <h2 id="mapHead" class="panel__head">
+      대여소 분포
+      <span class="panel__hint">점 색·번호 = 군집 / 점 크기 = 일평균 이용건수</span>
+    </h2>
+
+    <div class="filterbar" role="group" aria-label="군집 필터">
+      <span class="filterbar__label">표시할 군집</span>
+      <div id="clusterFilter" class="filterbar__chips"></div>
+    </div>
+
+    <div class="mapwrap">
+      <div id="map" role="application"
+           aria-label="서울 따릉이 대여소 군집 지도"></div>
+      <p class="maptip" id="mapTip">
+        지도 배경(타일)이 회색으로만 보이면 인터넷 연결과
+        <code>tile.openstreetmap.org</code> 차단 여부를 확인한다.
+        배경이 없어도 점의 위치·색·군집은 정상이다.
+      </p>
+    </div>
+
+    <div class="legend" id="legend" aria-label="군집 범례"></div>
+  </section>
+
+  <!-- ── 오른쪽: 군집 요약 · 대여소 ─────────────────────────── -->
+  <section class="panel panel--detail" aria-labelledby="summaryHead">
+    <h2 id="summaryHead" class="panel__head">
+      군집 요약
+      <span class="panel__hint">평균은 표준화값이 아니라 원본 단위로 되돌린 값</span>
+    </h2>
+    <div id="clusterCards" class="cards"></div>
+
+    <h2 class="panel__head panel__head--sep" id="listHead">
+      대여소
+      <span class="panel__hint" id="listCount">—</span>
+    </h2>
+    <label class="search" for="search">
+      <span class="search__label">대여소명 또는 대여소번호 검색</span>
+      <input type="search" id="search" placeholder="예: DMC역, 870"
+             autocomplete="off" aria-describedby="listCount">
+    </label>
+    <ul class="stationlist" id="stationList" tabindex="0"
+        aria-labelledby="listHead"></ul>
+
+    <div class="station" id="station" aria-live="polite">
+      <p class="station__empty">목록이나 지도에서 대여소를 선택하면 상세 지표가 나온다.</p>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script src="app.js"></script>
+</body>
+</html>

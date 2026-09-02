@@ -1,0 +1,477 @@
+/* 따릉이 대여소 군집 관제 화면
+   ------------------------------------------------------------------
+   관리자 템플릿이 아니라 "운영관제 콘솔" 인상을 목표로 한다.
+   - 지도가 화면의 가장 큰 면적을 차지하고, 가중치 패널과 군집 요약이
+     양옆에서 지도를 보조한다.
+   - 색은 배경(먹색) + 군집 4색 + 강조 1색으로 제한한다.
+   - 군집은 색만으로 구분하지 않는다. 번호와 이름을 항상 함께 쓴다.
+   - 애니메이션은 상태 전환을 알리는 최소한만 쓴다(0.12s 이내). */
+
+:root {
+  --bg:        #0b0d10;
+  --bg-panel:  #12151a;
+  --bg-sunken: #0e1116;
+  --bg-raised: #1a1f27;
+  --line:      #232a34;
+  --line-soft: #1b212a;
+  --fg:        #eef1f5;
+  --fg-mid:    #a4adba;
+  --fg-dim:    #6d7783;
+  --accent:    #35b7ff;
+  --accent-dk: #0d5f8a;
+  --warn:      #ff8a4c;
+
+  /* 군집 0~3. 발표자료 덱(build_..._charts.py의 CL)과 같은 색 계열. */
+  --c0: #ff9f0a;
+  --c1: #35a0ff;
+  --c2: #35d17a;
+  --c3: #c07af5;
+
+  --mono: "Consolas", "D2Coding", "Menlo", monospace;
+  --sans: "Pretendard", "NanumSquare", "Malgun Gothic", -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { height: 100%; }
+body {
+  /* 데스크톱에서는 화면 높이에 딱 맞춰 세 열이 각자 스크롤한다.
+     헤더 높이를 상수로 박으면(calc(100vh - 60px)) 글자 크기나 배너 줄 수가
+     달라질 때 어긋나므로 flex로 남는 높이를 준다. */
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+
+/* ── 상단바 ───────────────────────────────────────────────── */
+.topbar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, #151a21 0%, #0f1318 100%);
+  border-bottom: 1px solid var(--line);
+}
+.topbar__id { display: flex; align-items: center; gap: 12px; }
+.topbar__mark {
+  width: 10px; height: 34px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--c2), var(--accent));
+}
+.topbar h1 { font-size: 18px; }
+.topbar__sub { margin: 2px 0 0; font-size: 12px; color: var(--fg-dim); }
+
+.topbar__stats { display: flex; gap: 26px; margin: 0; }
+.topbar__stats div { display: flex; flex-direction: column; gap: 2px; }
+.topbar__stats dt {
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.topbar__stats dd {
+  margin: 0; font-family: var(--mono); font-size: 14px; color: var(--fg);
+}
+
+/* ── 상태 배너 ────────────────────────────────────────────── */
+.banner {
+  flex: none;
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 13.5px;
+  color: var(--fg-mid);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--line-soft);
+}
+.banner[data-state="error"] { color: #ffd0c0; background: #2a1410; }
+.banner[hidden] { display: none; }
+
+/* ── 3열 레이아웃 ─────────────────────────────────────────── */
+.layout {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: 300px minmax(0, 1fr) 380px;
+  gap: 1px;
+  background: var(--line);
+}
+.layout[hidden] { display: none; }
+
+.panel {
+  min-width: 0;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+}
+.panel--map {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--fg);
+}
+.panel__head--sep {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.panel__hint { font-size: 11.5px; font-weight: 400; color: var(--fg-dim); }
+
+/* ── 가중치 ───────────────────────────────────────────────── */
+.weights { display: flex; flex-direction: column; gap: 12px; }
+.weight { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
+.weight__name { font-size: 12.5px; color: var(--fg-mid); }
+.weight__value {
+  min-width: 52px;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--fg);
+  text-align: right;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.weight__value:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.weight input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.weight input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.weights__sumrow { margin-top: 14px; }
+.weights__sum {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 7px 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.weights__sumlabel { font-size: 12px; color: var(--fg-mid); }
+.weights__sum strong { font-family: var(--mono); font-size: 16px; }
+.weights__sum[data-off="1"] { border-color: var(--warn); }
+.weights__sum[data-off="1"] strong { color: var(--warn); }
+.weights__note { margin: 6px 0 0; font-size: 11.5px; color: var(--fg-dim); }
+
+.weights__effective {
+  width: 100%;
+  margin-top: 14px;
+  font-size: 11.5px;
+  border-collapse: collapse;
+}
+.weights__effective caption {
+  margin-bottom: 5px;
+  font-size: 11.5px;
+  color: var(--fg-dim);
+  text-align: left;
+}
+.weights__effective th,
+.weights__effective td {
+  padding: 4px 5px;
+  text-align: right;
+  border-bottom: 1px solid var(--line-soft);
+}
+.weights__effective th { font-weight: 600; color: var(--fg-dim); }
+.weights__effective th:first-child,
+.weights__effective td:first-child { text-align: left; }
+.weights__effective td { font-family: var(--mono); color: var(--fg-mid); }
+.weights__effective td:nth-child(3) { color: var(--fg); }
+.weights__effective tr[data-stale="1"] td { color: var(--warn); }
+
+.weights__actions { display: flex; gap: 8px; margin-top: 16px; }
+.btn {
+  flex: 1;
+  padding: 9px 10px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fg);
+  cursor: pointer;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover { background: #222833; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:active { background: #2a313d; }
+.btn--primary { color: #04212f; background: var(--accent); border-color: var(--accent); }
+.btn--primary:hover { background: #5cc6ff; }
+.btn--primary[data-dirty="1"] { box-shadow: 0 0 0 2px rgba(53, 183, 255, 0.28); }
+.btn[disabled] { color: var(--fg-dim); cursor: default; background: var(--bg-sunken); box-shadow: none; }
+
+.delta {
+  display: grid;
+  gap: 2px;
+  margin-top: 14px;
+  padding: 9px 11px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-dk);
+  border-radius: 4px;
+}
+.delta__label { font-size: 11.5px; color: var(--fg-mid); }
+.delta__value { font-family: var(--mono); font-size: 19px; }
+.delta__sub { font-size: 11px; color: var(--fg-dim); }
+
+.notice {
+  margin-top: 18px;
+  padding: 10px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.notice h3 { margin-bottom: 6px; font-size: 11.5px; color: var(--warn); }
+.notice ul { margin: 0; padding-left: 16px; }
+.notice li { margin-bottom: 4px; font-size: 11.5px; color: var(--fg-mid); }
+
+/* ── 지도 ─────────────────────────────────────────────────── */
+.filterbar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-bottom: 10px;
+}
+.filterbar__label { font-size: 11.5px; color: var(--fg-dim); }
+.filterbar__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  color: var(--fg-mid);
+  cursor: pointer;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.chip:hover { color: var(--fg); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip[aria-pressed="true"] { color: #04212f; background: var(--fg); border-color: var(--fg); }
+.chip__dot { width: 9px; height: 9px; border-radius: 50%; }
+.chip__n { font-family: var(--mono); font-weight: 400; opacity: 0.75; }
+
+.mapwrap { position: relative; flex: 1; min-height: 320px; }
+#map {
+  width: 100%; height: 100%;
+  background: #1b1f26;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.maptip {
+  position: absolute; right: 10px; bottom: 10px; left: 10px;
+  z-index: 500;
+  margin: 0;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  color: #ffd9c4;
+  background: rgba(42, 20, 16, 0.94);
+  border: 1px solid #5a2f1e;
+  border-radius: 4px;
+}
+.maptip[hidden] { display: none; }
+.maptip code { font-family: var(--mono); }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--fg-mid);
+}
+.legend__item { display: flex; align-items: center; gap: 6px; }
+.legend__swatch { width: 11px; height: 11px; border-radius: 50%; }
+.legend__size { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.legend__size i { display: inline-block; border-radius: 50%; background: var(--fg-dim); }
+
+/* Leaflet 팝업을 관제 화면 색으로 맞춘다 */
+.leaflet-container { font-family: var(--sans); background: #1b1f26; }
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip { color: var(--fg); background: var(--bg-raised); border: 1px solid var(--line); }
+.leaflet-popup-content { margin: 9px 12px; font-size: 12.5px; }
+.leaflet-popup-content b { display: block; margin-bottom: 3px; font-size: 13px; }
+.leaflet-popup-content .pop__k { font-family: var(--mono); color: var(--fg-mid); }
+.leaflet-container a.leaflet-popup-close-button { color: var(--fg-dim); }
+.leaflet-control-attribution { color: var(--fg-dim) !important; background: rgba(11, 13, 16, 0.8) !important; }
+.leaflet-control-attribution a { color: var(--fg-mid) !important; }
+.leaflet-bar a { color: var(--fg) !important; background: var(--bg-raised) !important; border-bottom-color: var(--line) !important; }
+.leaflet-bar a:hover { background: #222833 !important; }
+
+/* ── 군집 카드 ────────────────────────────────────────────── */
+.cards { display: grid; gap: 8px; }
+.card {
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: 4px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.card:hover { background: #161b22; }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card[aria-pressed="true"] { background: #171d25; }
+.card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.card__id { font-size: 13.5px; font-weight: 800; }
+.card__n { font-family: var(--mono); font-size: 12px; color: var(--fg-mid); }
+.card__name { margin: 3px 0 2px; font-size: 12.5px; font-weight: 700; color: var(--fg); }
+.card__top-metric { font-size: 11.5px; color: var(--warn); }
+.card__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 4px 10px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line-soft);
+}
+.card__grid div { display: flex; flex-direction: column; }
+.card__grid dt, .card__grid span:first-child { font-size: 10.5px; color: var(--fg-dim); }
+.card__grid strong { font-family: var(--mono); font-size: 12.5px; font-weight: 400; color: var(--fg); }
+
+/* ── 검색 · 목록 ──────────────────────────────────────────── */
+.search { display: block; margin-bottom: 8px; }
+.search__label {
+  display: block; margin-bottom: 4px;
+  font-size: 11.5px; color: var(--fg-dim);
+}
+.search input {
+  width: 100%;
+  padding: 7px 9px;
+  font-family: inherit; font-size: 13px; color: var(--fg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.stationlist {
+  max-height: 224px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.stationlist:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.stationlist li { border-bottom: 1px solid var(--line-soft); }
+.stationlist li:last-child { border-bottom: 0; }
+.row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--fg-mid);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.row:hover { color: var(--fg); background: #161b22; }
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row[aria-current="true"] { color: var(--fg); background: #1b2330; }
+.row__k {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  text-align: center;
+  border-radius: 3px;
+}
+.row__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row__v { font-family: var(--mono); font-size: 11.5px; color: var(--fg-dim); }
+.stationlist__empty { padding: 12px 10px; font-size: 12px; color: var(--fg-dim); }
+
+/* ── 대여소 상세 ──────────────────────────────────────────── */
+.station { margin-top: 12px; }
+.station__empty {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  background: var(--bg-sunken);
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+.station__card {
+  padding: 11px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.station__name { font-size: 14px; }
+.station__where { margin: 3px 0 8px; font-size: 11.5px; color: var(--fg-dim); }
+.station__k {
+  display: inline-block;
+  margin-bottom: 9px;
+  padding: 2px 8px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+  border-radius: 999px;
+}
+.station__dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 12px;
+  margin: 0;
+}
+.station__dl > div {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.station__dl dt { font-size: 11px; color: var(--fg-dim); }
+.station__dl dd { margin: 0; font-family: var(--mono); font-size: 12px; }
+.station__foot { margin: 9px 0 0; font-size: 11px; color: var(--fg-dim); }
+
+/* ── 태블릿 · 모바일 ──────────────────────────────────────── */
+/* 태블릿 — 지도를 한 줄 전체로 올리고, 가중치와 군집 요약을 그 아래 두 열로.
+   좁은 폭에서 지도를 왼쪽 패널과 나란히 두면 지도가 먼저 작아진다. */
+@media (max-width: 1180px) {
+  body { overflow: auto; height: auto; }
+  .layout {
+    flex: none;
+    grid-template-columns: minmax(280px, 1fr) minmax(0, 1.2fr);
+    grid-template-rows: minmax(440px, 56vh) auto;
+  }
+  .panel--map { grid-column: 1 / -1; grid-row: 1; }
+  .panel--weights { grid-column: 1; grid-row: 2; overflow: visible; }
+  .panel--detail { grid-column: 2; grid-row: 2; overflow: visible; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .stationlist { max-height: 300px; }
+}
+
+@media (max-width: 720px) {
+  body { font-size: 14px; }
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .panel--weights, .panel--map, .panel--detail {
+    grid-column: 1; grid-row: auto; overflow: visible;
+  }
+  .panel--map { min-height: 460px; }
+  .mapwrap { min-height: 380px; }
+  .topbar__stats { gap: 14px 20px; flex-wrap: wrap; }
+  .station__dl { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
